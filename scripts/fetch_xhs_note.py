@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -86,10 +87,33 @@ def normalize_item(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def resolve_xhs_repo() -> Path:
+    script_path = Path(__file__).resolve()
+    skill_dir = script_path.parent.parent
+    candidates = []
+    env_path = os.environ.get("XHS_DOWNLOADER_PATH")
+    if env_path:
+        candidates.append(Path(env_path).expanduser())
+    candidates.extend(
+        [
+            skill_dir.parent / "XHS-Downloader",
+            Path.cwd() / "XHS-Downloader",
+            skill_dir / "vendor" / "XHS-Downloader",
+        ]
+    )
+    for candidate in candidates:
+        if candidate.exists() and (candidate / "source").exists():
+            return candidate
+    searched = ", ".join(str(path) for path in candidates)
+    raise RuntimeError(
+        "未找到 XHS-Downloader 项目。"
+        "请设置环境变量 XHS_DOWNLOADER_PATH，或将 XHS-Downloader 放在 skill 同级目录、当前工作目录下，"
+        f"已尝试位置：{searched}"
+    )
+
+
 def load_xhs_class() -> Any:
-    repo_root = Path(__file__).resolve().parents[2] / "XHS-Downloader"
-    if not repo_root.exists():
-        raise RuntimeError(f"未在 {repo_root} 找到 XHS-Downloader 项目")
+    repo_root = resolve_xhs_repo()
     sys.path.insert(0, str(repo_root))
     try:
         from source import XHS  # type: ignore

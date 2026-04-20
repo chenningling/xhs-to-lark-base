@@ -18,12 +18,17 @@
 优先使用本技能自带的辅助脚本：
 
 ```bash
-python3 /Users/chennl/Desktop/Skills/feishu/Redbook_Sync/xhs-to-lark-base/scripts/fetch_xhs_note.py --text "<用户消息>"
+python3 ./scripts/fetch_xhs_note.py --text "<用户消息>"
 ```
 
-脚本会封装调用本地 `XHS-Downloader` 项目：
+脚本会封装调用本地 `XHS-Downloader` 项目。
 
-`/Users/chennl/Desktop/Skills/feishu/Redbook_Sync/XHS-Downloader`
+优先定位顺序：
+
+1. 环境变量 `XHS_DOWNLOADER_PATH`
+2. skill 同级目录下的 `XHS-Downloader/`
+3. 当前工作目录下的 `XHS-Downloader/`
+4. `vendor/XHS-Downloader/`
 
 它只把这个项目作为本地依赖来源使用。除非在排障，否则不要要求操作者手动研究那个仓库。
 

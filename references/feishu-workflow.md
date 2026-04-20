@@ -85,9 +85,13 @@ lark-cli base +table-create --base-token app_xxx --name "小红书笔记采集"
 
 关键规则：
 
+- `内容类型` 字段必须是 `select` 且 `multiple=false`，默认选项至少包含 `图文`、`图集`、`视频`
 - `标签` 字段必须是 `select` 且 `multiple=true`
 - `点赞 / 收藏 / 评论` 必须是整数样式的 `number`
+- `内容链接`、`作者主页链接`、`视频链接` 必须使用超链接显示样式
+- `图片链接` 保持普通文本，因为可能包含多条 URL
 - `图片附件 / 视频附件` 必须是 `attachment`
+- 如果旧字段无法直接改成超链接样式，可采用“删除并重建同名字段后回填原值”的修复策略
 - 如果用户明确要求，可删除 `单选`、`采集结果`、`失败原因`
 - 默认视图顺序要按 [`base-schema.md`](base-schema.md) 设置
 
@@ -112,7 +116,7 @@ lark-cli base +record-search \
 lark-cli base +record-upsert \
   --base-token app_xxx \
   --table-id tbl_xxx \
-  --json '{"标题":"示例","内容类型":"图文","内容链接":"https://www.xiaohongshu.com/explore/abc"}'
+  --json '{"标题":"示例","内容类型":"图文","作者":"示例作者","内容链接":"https://www.xiaohongshu.com/explore/abc"}'
 ```
 
 更新：
@@ -163,9 +167,7 @@ lark-cli base +record-upload-attachment \
 
 ## 9. 更新保存的默认配置
 
-当用户更换默认 Base 时，更新：
-
-`/Users/chennl/Desktop/Skills/feishu/Redbook_Sync/xhs-to-lark-base/assets/default-base.json`
+当用户更换默认 Base 时，更新 `assets/default-base.json`。
 
 推荐结构：
 

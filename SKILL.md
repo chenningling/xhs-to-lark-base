@@ -1,6 +1,6 @@
 ---
 name: xhs-to-lark-base
-description: 将 Xiaohongshu（小红书 / RedNote）笔记链接归档到飞书 Base（多维表格）中。当用户提供一个或多个小红书链接，并希望把笔记标题、正文、标签、发布时间、互动数据、原始链接以及图片/视频素材保存到飞书多维表格时使用；当用户希望创建、校验、修复或替换这条归档流程默认使用的 Base 链接时，也使用此技能。
+description: 将 Xiaohongshu（小红书 / RedNote）笔记链接归档到飞书 Base（多维表格）中。当用户提供一个或多个小红书链接，并希望把笔记标题、内容类型、作者、正文、标签、发布时间、互动数据、原始链接以及图片/视频素材保存到飞书多维表格时使用；当用户希望创建、校验、修复或替换这条归档流程默认使用的 Base 链接时，也使用此技能。
 ---
 
 # 小红书同步到飞书多维表格
@@ -32,7 +32,6 @@ description: 将 Xiaohongshu（小红书 / RedNote）笔记链接归档到飞书
 - 如果用户提供新的 Base 链接，将其视为“替换默认目标 Base”的明确请求。
 - 如果新的 Base 缺少字段，先补齐或修复字段结构，再继续使用。
 - 除非用户明确要求，否则不要删除用户已有字段。
-- 如果用户明确要求删除冗余字段，可删除 `单选`、`采集结果`、`失败原因`。
 - 先创建记录，拿到 `record_id` 后再处理附件上传。
 - 清楚汇报部分成功的情况，尤其是元数据写入成功但附件上传失败时。
 - 默认新建的 Base 文档名使用 `小红书笔记采集`。
@@ -45,7 +44,7 @@ description: 将 Xiaohongshu（小红书 / RedNote）笔记链接归档到飞书
 先运行辅助脚本：
 
 ```bash
-python3 /Users/chennl/Desktop/Skills/feishu/Redbook_Sync/xhs-to-lark-base/scripts/fetch_xhs_note.py --text "<用户消息>"
+python3 ./scripts/fetch_xhs_note.py --text "<用户消息>"
 ```
 
 脚本会：
@@ -57,6 +56,7 @@ python3 /Users/chennl/Desktop/Skills/feishu/Redbook_Sync/xhs-to-lark-base/script
 - 在 JSON 中保留原始数据，便于排障
 
 如果辅助脚本无法导入本地小红书依赖，要明确说明当前元数据抓取被环境阻塞，需先补齐依赖后才能继续。不要虚构任何笔记数据。
+优先通过环境变量 `XHS_DOWNLOADER_PATH` 定位 `XHS-Downloader`；未设置时，再尝试 skill 同级目录、当前工作目录和 `vendor/XHS-Downloader`。
 
 ### 2. 确定目标 Base
 
@@ -95,8 +95,10 @@ python3 /Users/chennl/Desktop/Skills/feishu/Redbook_Sync/xhs-to-lark-base/script
 - 文本类数据：使用 `text` 或 `url`
 - 计数类数据：使用 `number`
 - 发布时间：使用 `datetime`
+- 内容类型：使用 `select` 单选，默认选项至少包含 `图文 / 图集 / 视频`
 - 标签：使用 `select` 多选，并在写入前动态补齐选项
-- 远程媒体链接备份：使用 `text`
+- `内容链接`、`作者主页链接`、`视频链接`：使用带超链接显示样式的 `text`
+- `图片链接`：使用普通 `text`，因为可能一次写入多条 URL
 - 已上传媒体：使用 `attachment`
 
 ### 4. 写入 Base 记录
@@ -107,6 +109,7 @@ python3 /Users/chennl/Desktop/Skills/feishu/Redbook_Sync/xhs-to-lark-base/script
 
 - `标题`
 - `内容类型`
+- `作者`
 - `正文`
 - `标签`
 - `发布日期`
@@ -194,7 +197,7 @@ lark-cli base +field-create \
 lark-cli base +record-upsert \
   --base-token app_xxx \
   --table-id tbl_xxx \
-  --json '{"标题":"示例笔记","内容类型":"图文","内容链接":"https://www.xiaohongshu.com/explore/xxx"}'
+  --json '{"标题":"示例笔记","内容类型":"图文","作者":"示例作者","内容链接":"https://www.xiaohongshu.com/explore/xxx"}'
 ```
 
 上传附件：
