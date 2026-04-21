@@ -21,16 +21,14 @@
 python3 ./scripts/fetch_xhs_note.py --text "<用户消息>"
 ```
 
-脚本会封装调用本地 `XHS-Downloader` 项目。
+脚本会使用本技能仓库内置的解析器：
 
-优先定位顺序：
+- 展开 `xhslink.com` 短链
+- 请求小红书页面
+- 解析页面中的 `window.__INITIAL_STATE__`
+- 标准化输出笔记字段
 
-1. 环境变量 `XHS_DOWNLOADER_PATH`
-2. skill 同级目录下的 `XHS-Downloader/`
-3. 当前工作目录下的 `XHS-Downloader/`
-4. `vendor/XHS-Downloader/`
-
-它只把这个项目作为本地依赖来源使用。除非在排障，否则不要要求操作者手动研究那个仓库。
+除非在排障，否则不要要求操作者再去准备额外的小红书项目仓库。
 
 ## 标准化输出
 

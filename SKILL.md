@@ -50,13 +50,12 @@ python3 ./scripts/fetch_xhs_note.py --text "<用户消息>"
 脚本会：
 
 - 从自由文本中提取支持的小红书链接
-- 通过本地 `XHS-Downloader` 流程解析 `xhslink.com` 短链
+- 使用本技能内置解析器展开 `xhslink.com` 短链并抓取页面状态
 - 返回标准化后的笔记字段
 - 自动把 `2.3万`、`1.1亿` 这类互动数文本转换成整数
 - 在 JSON 中保留原始数据，便于排障
 
-如果辅助脚本无法导入本地小红书依赖，要明确说明当前元数据抓取被环境阻塞，需先补齐依赖后才能继续。不要虚构任何笔记数据。
-优先通过环境变量 `XHS_DOWNLOADER_PATH` 定位 `XHS-Downloader`；未设置时，再尝试 skill 同级目录、当前工作目录和 `vendor/XHS-Downloader`。
+如果辅助脚本缺少本仓库自己的 Python 依赖，要明确说明当前元数据抓取被环境阻塞，需先安装 `requirements.txt` 后才能继续。不要虚构任何笔记数据。
 
 ### 2. 确定目标 Base
 

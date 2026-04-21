@@ -6,138 +6,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
-import re
 import sys
-from pathlib import Path
-from typing import Any
 
-
-SHORT_URL_RE = re.compile(r"https?://xhslink\.com(?:/[A-Za-z0-9_-]+)+")
-NOTE_URL_RE = re.compile(
-    r"https?://www\.xiaohongshu\.com/"
-    r"(?:explore|discovery/item|user/profile/[^/\s]+/[^?\s/]+)"
-    r"/?[^?\s]*"
-    r"(?:\?[^\s]+)?"
-)
-
-
-def extract_links(text: str) -> list[str]:
-    links: list[str] = []
-    for match in SHORT_URL_RE.finditer(text):
-        links.append(match.group(0))
-    for match in NOTE_URL_RE.finditer(text):
-        links.append(match.group(0))
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for link in links:
-        if link not in seen:
-            seen.add(link)
-            ordered.append(link)
-    return ordered
-
-
-def parse_count(value: Any) -> int | None:
-    if value in (None, "", "-1", "未知"):
-        return None
-    if isinstance(value, (int, float)):
-        return int(value)
-    text = str(value).strip().replace(",", "")
-    if not text:
-        return None
-    multiplier = 1
-    if text.endswith("万"):
-        multiplier = 10_000
-        text = text[:-1]
-    elif text.endswith("亿"):
-        multiplier = 100_000_000
-        text = text[:-1]
-    try:
-        return int(float(text) * multiplier)
-    except (TypeError, ValueError):
-        return None
-
-
-def normalize_item(item: dict[str, Any]) -> dict[str, Any]:
-    note_type = item.get("作品类型") or ""
-    media_urls = [url for url in item.get("下载地址", []) if url]
-    live_photo_urls = [url for url in item.get("动图地址", []) if url and url != "NaN"]
-    image_urls = media_urls if note_type in {"图文", "图集"} else []
-    video_urls = media_urls if note_type == "视频" else []
-    tags = [tag for tag in str(item.get("作品标签", "")).split() if tag]
-    return {
-        "note_id": item.get("作品ID"),
-        "note_url": item.get("作品链接"),
-        "note_type": note_type,
-        "title": item.get("作品标题") or "",
-        "author_name": item.get("作者昵称") or "",
-        "author_id": item.get("作者ID") or "",
-        "author_url": item.get("作者链接") or "",
-        "content": item.get("作品描述") or "",
-        "tags": tags,
-        "published_at": item.get("发布时间") or "",
-        "like_count": parse_count(item.get("点赞数量")),
-        "collect_count": parse_count(item.get("收藏数量")),
-        "comment_count": parse_count(item.get("评论数量")),
-        "share_count": parse_count(item.get("分享数量")),
-        "image_urls": image_urls,
-        "video_urls": video_urls,
-        "live_photo_urls": live_photo_urls,
-        "raw": item,
-    }
-
-
-def resolve_xhs_repo() -> Path:
-    script_path = Path(__file__).resolve()
-    skill_dir = script_path.parent.parent
-    candidates = []
-    env_path = os.environ.get("XHS_DOWNLOADER_PATH")
-    if env_path:
-        candidates.append(Path(env_path).expanduser())
-    candidates.extend(
-        [
-            skill_dir.parent / "XHS-Downloader",
-            Path.cwd() / "XHS-Downloader",
-            skill_dir / "vendor" / "XHS-Downloader",
-        ]
+try:
+    from xhs_parser import extract_links, fetch_notes
+except ImportError as exc:  # pragma: no cover - dependency guard
+    print(
+        "缺少运行依赖，请先在当前仓库中执行 `pip install -r requirements.txt`。",
+        file=sys.stderr,
     )
-    for candidate in candidates:
-        if candidate.exists() and (candidate / "source").exists():
-            return candidate
-    searched = ", ".join(str(path) for path in candidates)
-    raise RuntimeError(
-        "未找到 XHS-Downloader 项目。"
-        "请设置环境变量 XHS_DOWNLOADER_PATH，或将 XHS-Downloader 放在 skill 同级目录、当前工作目录下，"
-        f"已尝试位置：{searched}"
-    )
-
-
-def load_xhs_class() -> Any:
-    repo_root = resolve_xhs_repo()
-    sys.path.insert(0, str(repo_root))
-    try:
-        from source import XHS  # type: ignore
-    except Exception as exc:  # pragma: no cover - import guard
-        raise RuntimeError(
-            "无法从本地 XHS-Downloader 导入 XHS。"
-            "请先安装该项目依赖。"
-        ) from exc
-    return XHS
-
-
-async def fetch_notes(text: str) -> dict[str, Any]:
-    links = extract_links(text)
-    if not links:
-        return {"links": [], "items": [], "count": 0}
-
-    XHS = load_xhs_class()
-    async with XHS(
-        download_record=False,
-        record_data=False,
-    ) as xhs:
-        items = await xhs.extract(" ".join(links), download=False)
-    normalized = [normalize_item(item) for item in items if isinstance(item, dict) and item]
-    return {"links": links, "items": normalized, "count": len(normalized)}
+    raise SystemExit(2) from exc
 
 
 def main() -> int:
