@@ -31,6 +31,7 @@ INITIAL_STATE_RE = re.compile(
     re.S,
 )
 ILLEGAL_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+TOPIC_TAG_RE = re.compile(r"#([^#\r\n]+?)(?:\[话题\])?#")
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -210,6 +211,25 @@ def extract_video_urls(note: dict[str, Any]) -> list[str]:
     return [format_url(str(master))] if master else []
 
 
+def clean_content(desc: Any, tags: list[str]) -> str:
+    """Remove Xiaohongshu topic tags from the note description."""
+    text = str(desc or "").strip()
+    if not text:
+        return ""
+
+    text = TOPIC_TAG_RE.sub("", text)
+    for tag in tags:
+        escaped = re.escape(tag)
+        text = re.sub(rf"#\s*{escaped}\s*(?:\[话题\])?#?", "", text)
+
+    lines = []
+    for line in text.splitlines():
+        cleaned = re.sub(r"[ \t]+", " ", line).strip()
+        if cleaned:
+            lines.append(cleaned)
+    return "\n".join(lines).strip()
+
+
 def normalize_note(url: str, note: dict[str, Any]) -> dict[str, Any]:
     note_id = str(note.get("noteId") or "").strip()
     author_id = str(deep_get(note, "user.userId", "")).strip()
@@ -221,6 +241,7 @@ def normalize_note(url: str, note: dict[str, Any]) -> dict[str, Any]:
     for tag in note.get("tagList") or []:
         if isinstance(tag, dict) and tag.get("name"):
             tags.append(str(tag["name"]).strip())
+    content = clean_content(note.get("desc"), tags)
 
     canonical_note_url = f"https://www.xiaohongshu.com/explore/{note_id}" if note_id else url
     author_url = (
@@ -234,7 +255,7 @@ def normalize_note(url: str, note: dict[str, Any]) -> dict[str, Any]:
         "author_name": str(deep_get(note, "user.nickname") or deep_get(note, "user.nickName") or ""),
         "author_id": author_id,
         "author_url": author_url,
-        "content": str(note.get("desc") or ""),
+        "content": content,
         "tags": tags,
         "published_at": format_publish_time(note.get("time")),
         "like_count": parse_count(deep_get(note, "interactInfo.likedCount")),

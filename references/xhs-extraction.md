@@ -18,7 +18,7 @@
 优先使用本技能自带的辅助脚本：
 
 ```bash
-python3 ./scripts/fetch_xhs_note.py --text "<用户消息>"
+python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 ```
 
 脚本会使用本技能仓库内置的解析器：
