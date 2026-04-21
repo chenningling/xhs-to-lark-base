@@ -53,7 +53,7 @@ lark-cli base +base-create --name "小红书笔记采集" --time-zone Asia/Shang
 
 - 如果返回中有 `base.url`，记录下来
 - 记录 Base token
-- 把它们保存到 `assets/default-base.json`
+- 把它们保存到本地私有文件 `assets/default-base.json`
 
 ## 4. 检查数据表、字段与视图
 
@@ -91,9 +91,8 @@ lark-cli base +table-create --base-token app_xxx --name "小红书笔记采集"
 - `内容链接`、`作者主页链接`、`视频链接` 必须使用超链接显示样式
 - `图片链接` 保持普通文本，因为可能包含多条 URL
 - `图片附件 / 视频附件` 必须是 `attachment`
-- 如果旧字段无法直接改成超链接样式，可采用“删除并重建同名字段后回填原值”的修复策略
-- 如果用户明确要求，可删除 `单选`、`采集结果`、`失败原因`
-- 默认视图顺序要按 [`base-schema.md`](base-schema.md) 设置
+- 如果旧字段无法直接改成规范类型或超链接样式，不要删除或重建同名字段；先提示用户确认，再新增安全替代字段或新建采集表
+- 只有新建表或用户明确要求时，才按 [`base-schema.md`](base-schema.md) 设置默认视图顺序
 
 ## 6. 默认不查重
 
@@ -170,7 +169,7 @@ lark-cli base +record-upload-attachment \
 
 ## 9. 更新保存的默认配置
 
-当用户更换默认 Base 时，更新 `assets/default-base.json`。
+当用户更换默认 Base 时，更新本地配置文件 `assets/default-base.json`。
 
 推荐结构：
 

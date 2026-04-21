@@ -375,7 +375,10 @@ async def run_sync(args: argparse.Namespace) -> dict[str, Any]:
     base_token = args.base_token or config.get("base_token")
     table_id = args.table_id or config.get("table_id")
     if not base_token or not table_id:
-        raise RuntimeError("缺少 base_token 或 table_id；请配置 assets/default-base.json 或传入参数")
+        raise RuntimeError(
+            "缺少 base_token 或 table_id；请根据 assets/default-base.example.json "
+            "创建本地 assets/default-base.json，或通过参数传入"
+        )
 
     fetched = await fetch_notes(text)
     notes = fetched.get("items") or []

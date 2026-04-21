@@ -17,7 +17,7 @@ description: 将 Xiaohongshu（小红书 / RedNote）笔记链接采集到飞书
 4. 优先使用 [`scripts/sync_xhs_to_lark_base.py`](scripts/sync_xhs_to_lark_base.py) 完成抓取、写入、媒体下载和附件上传；仅在排障时单独使用 [`scripts/fetch_xhs_note.py`](scripts/fetch_xhs_note.py) 查看标准化后的笔记 JSON。
 5. 按以下顺序确定目标 Base：
    - 当前用户消息中显式提供的 Base 链接
-   - 保存于 [`assets/default-base.json`](assets/default-base.json) 的默认配置
+   - 保存于本地私有文件 `assets/default-base.json` 的默认配置
    - 如果前两者都没有，则新建一个 Base
 6. 写入记录前先校验或修复 Base 的字段结构。
 7. 在同一次 Skill 执行中，自动完成“下载媒体 -> 创建记录 -> 上传附件”。
@@ -30,7 +30,8 @@ description: 将 Xiaohongshu（小红书 / RedNote）笔记链接采集到飞书
 - 默认在不提供 cookie 的情况下工作。
 - 即使无法上传媒体附件，也优先完成元数据采集。
 - 如果用户提供新的 Base 链接，将其视为“替换默认目标 Base”的明确请求。
-- 如果新的 Base 缺少字段，先补齐或修复字段结构，再继续使用。
+- 如果指定 Base 里已有其他内容，不要清空表格、删除记录、覆盖已有字段或重排用户视图。
+- 如果指定 Base 缺少字段或关键字段类型不兼容，优先停止并说明缺失项；只有在用户确认后，才补齐字段、创建新的采集表，或改用新的 Base。
 - 除非用户明确要求，否则不要删除用户已有字段。
 - 先创建记录，拿到 `record_id` 后再处理附件上传。
 - 清楚汇报部分成功的情况，尤其是元数据写入成功但附件上传失败时。
@@ -73,24 +74,24 @@ python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 - 自动把 `2.3万`、`1.1亿` 这类互动数文本转换成整数
 - 在 JSON 中保留原始数据，便于排障
 
-如果辅助脚本缺少本仓库自己的 Python 依赖，要明确说明当前元数据抓取被环境阻塞，需先安装 `requirements.txt` 后才能继续。不要虚构任何笔记数据。
+如果辅助脚本缺少本技能的 Python 依赖，要明确说明当前元数据抓取被环境阻塞，需先安装 `requirements.txt` 后才能继续。不要虚构任何笔记数据。
 
 ### 2. 确定目标 Base
 
 使用以下优先级：
 
 1. 当前请求中显式提供的 Base 链接
-2. [`assets/default-base.json`](assets/default-base.json) 中保存的默认配置
+2. `assets/default-base.json` 中保存的本地默认配置
 3. 新建一个 Base，并将其保存为后续默认值
 
-当用户提供新的 Base 链接时，在校验成功后更新 [`assets/default-base.json`](assets/default-base.json)。
+当用户提供新的 Base 链接时，在校验成功后更新本地私有文件 `assets/default-base.json`。
 
 如果当前还没有 Base：
 
 - 新建一个名为 `小红书笔记采集` 的 Base
 - 创建名为 `小红书笔记采集` 的数据表
 - 创建 [`references/base-schema.md`](references/base-schema.md) 中列出的字段
-- 将得到的 Base URL、token 和 table ID 保存到 [`assets/default-base.json`](assets/default-base.json)
+- 将得到的 Base URL、token 和 table ID 保存到本地私有文件 `assets/default-base.json`
 
 ### 3. 校验或修复 Base 结构
 
@@ -99,10 +100,10 @@ python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 1. 读取当前数据表和字段列表。
 2. 确认采集表存在。
 3. 确认必须字段存在且类型兼容。
-4. 补齐缺失字段。
-5. 如果已有字段类型不兼容：
-   - 优先在确有必要时，以规范字段名加安全后缀的方式创建兼容字段
-   - 或者在安全且支持的前提下更新原字段
+4. 如果缺失字段或字段类型不兼容，先停止并汇报差异；不要在用户已有内容的指定 Base 上静默修复。
+5. 用户确认修复后：
+   - 优先新增缺失字段，或创建新的 `小红书笔记采集` 数据表
+   - 对类型不兼容的已有字段，优先以规范字段名加安全后缀的方式创建兼容字段
    - 不要静默破坏用户已有数据
 
 统一以 [`references/base-schema.md`](references/base-schema.md) 中定义的规范结构为准。
@@ -231,7 +232,7 @@ lark-cli base +record-upload-attachment \
 
 ## 配置文件
 
-使用 [`assets/default-base.json`](assets/default-base.json) 作为本技能本地保存的默认目标 Base 配置。
+使用本地文件 `assets/default-base.json` 作为本技能保存默认目标 Base 的配置。如果文件不存在，可从 `assets/default-base.example.json` 复制生成。
 
 预期结构：
 
@@ -248,6 +249,7 @@ lark-cli base +record-upload-attachment \
 规则：
 
 - 如果文件为空或缺少关键标识，就视为尚未配置
+- 如果文件不存在，可从 `assets/default-base.example.json` 复制生成
 - 当用户明确更换默认 Base 时，更新此文件
 - 路径和 token 必须真实，不要在真实配置文件中伪造占位值
 
@@ -266,4 +268,5 @@ lark-cli base +record-upload-attachment \
 - [`references/xhs-extraction.md`](references/xhs-extraction.md)：支持的链接类型、字段映射和媒体处理限制
 - [`references/base-schema.md`](references/base-schema.md)：规范的 Base 结构和字段映射
 - [`references/feishu-workflow.md`](references/feishu-workflow.md)：`lark-cli` 认证、建表、修表、写记录和上传附件的操作流程
-- [`assets/default-base.json`](assets/default-base.json)：保存默认 Base 配置
+- `assets/default-base.json`：保存本机默认 Base 配置
+- [`assets/default-base.example.json`](assets/default-base.example.json)：默认配置模板

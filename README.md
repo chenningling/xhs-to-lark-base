@@ -41,7 +41,7 @@ python scripts/sync_xhs_to_lark_base.py --text "http://xhslink.com/o/xxxx"
 把下面这段发给 Agent：
 
 ```text
-安装这个技能 https://github.com/chenningling/xhs-to-lark-base.git ，安装后告诉我怎么配置信息。
+安装这个技能 https://github.com/chenningling/xhs-to-lark-base.git ，安装后告诉我如何使用技能。
 ```
 
 安装完成后，直接把小红书笔记链接发给 Agent 即可：
@@ -56,6 +56,8 @@ python scripts/sync_xhs_to_lark_base.py --text "http://xhslink.com/o/xxxx"
 把这条小红书链接采集到这个飞书 Base：<Base 链接>
 小红书链接：<小红书链接>
 ```
+
+指定已有 Base 时，本 Skill 不会清空表格、删除已有记录，也不会默认覆盖已有字段。当前主同步脚本会先检查目标表是否已经具备采集所需字段：如果字段缺失或关键字段类型不符合要求，会停止并返回错误，要求先补齐字段或换用新的采集表；只有 `标签` 字段已是多选字段时，脚本会为本次采集到的新标签补充选项，并去除重复选项。
 
 ## 前置依赖
 
@@ -102,7 +104,7 @@ python -m venv .venv-xhs
 xhs-to-lark-base/
 ├── SKILL.md                         # Agent 执行入口
 ├── requirements.txt                 # Python 抓取依赖
-├── assets/default-base.json          # 默认 Base 配置
+├── assets/default-base.example.json  # 默认 Base 配置模板
 ├── scripts/sync_xhs_to_lark_base.py  # 主同步入口
 ├── scripts/fetch_xhs_note.py         # 从文本提取并抓取小红书笔记
 ├── scripts/xhs_parser.py             # 短链展开、页面解析、字段标准化
@@ -140,11 +142,19 @@ python scripts/sync_xhs_to_lark_base.py --text "http://xhslink.com/o/xxxx"
 
 ## 默认 Base
 
-默认 Base 配置保存在：
+默认 Base 配置保存在本地私有文件：
 
 ```text
 assets/default-base.json
 ```
+
+仓库只提交模板文件：
+
+```text
+assets/default-base.example.json
+```
+
+首次配置时，Agent 可以复制模板生成本地配置，或在创建/指定 Base 后写入真实配置。`assets/default-base.json` 已加入 `.gitignore`，不要把真实的 Base 链接、`base_token`、`table_id` 提交到仓库。
 
 Agent 选择目标 Base 的优先级：
 
@@ -152,7 +162,7 @@ Agent 选择目标 Base 的优先级：
 2. `assets/default-base.json` 中保存的默认 Base。
 3. 自动创建一个新的 `小红书笔记采集` Base，并写回默认配置。
 
-如果用户明确给出新的 Base 链接，Agent 可以把它视为替换默认 Base 的请求。默认配置可能包含真实 Base token 和 table id，发布或分享仓库前请确认是否需要清空。
+如果用户明确给出新的 Base 链接，Agent 可以把它视为替换默认 Base 的请求。指定的 Base 如果已有其他内容，不会被清空或覆盖；字段不符合时应先提示用户确认是补齐字段、换用新表，还是提供空 Base。真实默认配置只应保存在本机的 `assets/default-base.json` 中。
 
 ## Agent 执行要点
 
