@@ -36,21 +36,15 @@ python scripts/sync_xhs_to_lark_base.py --text "http://xhslink.com/o/xxxx"
 
 这个项目不是独立桌面应用，也不是无 Agent 的一键同步工具。核心入口是 `SKILL.md`，由 Agent 读取后执行。
 
-## Agent 云端安装
+## Agent 一键安装
 
-把下面这段发给支持从云端仓库拉取 Skill 的 Agent：
-
-```text
-请从 GitHub 仓库 https://github.com/chenningling/xhs-to-lark-base.git 拉取并安装 xhs-to-lark-base Skill，用它把我提供的小红书链接采集到飞书多维表格。开始前先检查 lark-cli、飞书授权和 Python 依赖；执行时按 SKILL.md 和 references/ 中的说明操作。
-```
-
-如果 Agent 需要更明确的安装提示：
+把下面这段发给 Agent：
 
 ```text
-请从云端仓库 https://github.com/chenningling/xhs-to-lark-base.git 安装 xhs-to-lark-base Skill。先安装并验证 https://github.com/larksuite/cli 中的 lark-cli，再安装 Python 依赖，最后用一条小红书链接验证解析流程。
+安装这个技能 https://github.com/chenningling/xhs-to-lark-base.git ，安装后告诉我怎么配置信息。
 ```
 
-安装完成后，直接把小红书分享文本发给 Agent 即可：
+安装完成后，直接把小红书笔记链接发给 Agent 即可：
 
 ```text
 这篇笔记帮我采集到飞书 Base：http://xhslink.com/o/xxxx
