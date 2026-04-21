@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """从自由文本中提取小红书链接，并抓取标准化后的笔记数据。"""
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ try:
     from xhs_parser import extract_links, fetch_notes
 except ImportError as exc:  # pragma: no cover - dependency guard
     print(
-        "缺少运行依赖，请先在当前仓库中执行 `pip install -r requirements.txt`。",
+        "缺少运行依赖，请先在当前仓库中执行 `python -m pip install -r requirements.txt`。",
         file=sys.stderr,
     )
     raise SystemExit(2) from exc

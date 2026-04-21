@@ -74,7 +74,7 @@ python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 - 自动把 `2.3万`、`1.1亿` 这类互动数文本转换成整数
 - 在 JSON 中保留原始数据，便于排障
 
-如果辅助脚本缺少本技能的 Python 依赖，要明确说明当前元数据抓取被环境阻塞，需先安装 `requirements.txt` 后才能继续。不要虚构任何笔记数据。
+如果脚本缺少本技能的 Python 依赖，默认提示用户在当前 Python 环境中执行 `python -m pip install -r requirements.txt`。不要默认创建虚拟环境；只有当前环境不允许安装依赖，或用户明确希望隔离依赖时，才建议使用虚拟环境、pipx、conda 等方案。不要虚构任何笔记数据。
 
 ### 2. 确定目标 Base
 

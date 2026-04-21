@@ -86,17 +86,12 @@ lark-cli auth login
 本 Skill 使用 Python 脚本解析小红书链接和页面数据：
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-如果不想使用全局 Python 环境：
+默认不需要创建虚拟环境；只要当前 `python` 能导入 `httpx` 和 `PyYAML` 即可。若系统限制直接安装依赖，或用户明确希望隔离依赖，再按自己的环境使用虚拟环境、pipx、conda 等方案。
 
-```bash
-python -m venv .venv-xhs
-.venv-xhs/bin/pip install -r requirements.txt
-```
-
-推荐 Python 3.12+。
+推荐 Python 3.12+；如果系统里 `python` 指向 Python 2，请改用对应的 Python 3 命令。
 
 ## 目录结构
 
@@ -201,10 +196,10 @@ npm install -g @larksuite/cli
 运行抓取脚本时如果提示缺少依赖：
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-或使用虚拟环境安装。
+如果当前 Python 环境不允许安装依赖，再改用虚拟环境、pipx、conda 等隔离方案。
 
 ### 小红书短链能识别但抓取失败
 

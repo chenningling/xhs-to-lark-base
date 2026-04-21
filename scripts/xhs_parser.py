@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """小红书页面解析器。
 
 提供最小自包含能力：

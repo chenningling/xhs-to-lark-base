@@ -13,3 +13,4 @@ downloads/
 assets/default-base.json
 assets/default-base.local.json
 CHANGELOG.md
+.venv-xhs

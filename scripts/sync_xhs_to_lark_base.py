@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Fetch Xiaohongshu notes and create Feishu Base records with media attachments."""
 
 from __future__ import annotations
