@@ -1,227 +1,201 @@
 # xhs-to-lark-base
 
-把小红书笔记采集到飞书多维表格的 Agent Skill。
+把小红书 / RedNote 笔记链接采集到飞书多维表格（Base）的 Agent Skill。
 
-Agent Skill 不是普通脚本说明书，而是一套给 AI Agent 读取和执行的任务手册：它把触发场景、操作顺序、字段规则、失败处理和可复用脚本放在同一个目录里，让 Codex、Claude Code、Cursor 等 Agent 在收到小红书链接后，可以按 `SKILL.md` 自动完成采集和写入。
 
-本 Skill 依赖飞书官方命令行工具 `lark-cli` 完成 Base 创建、字段维护、记录写入和附件上传。请先安装并授权 [larksuite/cli](https://github.com/larksuite/cli)，再使用本 Skill。
+## 项目背景
 
-## 能做什么
+小红书内容常常分散在聊天记录、运营选题、竞品观察和素材收藏里。人工整理时，需要反复打开链接、复制标题和正文、拆标签、记录互动数据、下载图片或视频，再把这些信息填进飞书多维表格。这个过程机械、耗时，也很容易漏字段。
 
-用户提供一条或多条小红书链接后，Agent 会按本 Skill 执行：
+`xhs-to-lark-base` 的目标是把这条链路封装成一个可以被 Agent 调用的技能：用户只需要把一条或多条小红书链接发给 Agent，Agent 就能按技能说明抓取笔记信息，并写入指定或自动创建的飞书 Base。
 
-1. 从自由文本中提取 `xhslink.com` 短链或 `xiaohongshu.com` 笔记链接。
-2. 抓取并标准化标题、类型、作者、正文、标签、发布时间、互动数据、原始链接和媒体链接；正文会去除已拆分到 `标签` 字段的 `#话题#` 内容。
-3. 确认目标飞书 Base；没有默认 Base 时创建 `小红书笔记采集`。
-4. 校验或补齐多维表字段结构。
-5. 直接创建新记录，默认支持同一条笔记重复采集。
-6. 下载可访问的图片或视频，并上传到 Base 附件字段。
-7. 返回 Base 链接、写入数量、字段结果和附件结果。
+## 解决痛点
 
-如果媒体下载或附件上传失败，Agent 仍会尽量写入已确认的元数据和远程媒体链接，并明确汇报部分成功的原因。
+- 降低人工录入成本：从自由文本中提取小红书链接，自动抓取标题、作者、正文、标签、发布时间和互动数据。
+- 统一内容沉淀格式：使用固定 Base 字段结构，让运营、研究、素材归档结果可复盘、可筛选、可协作。
+- 保留媒体素材线索：保存图片 / 视频远程链接，并在可行时下载本地媒体后上传为飞书附件。
+- 减少重复配置：支持本地默认 Base 配置，后续采集可以复用同一个目标表。
+- 对 Agent 友好：`SKILL.md`、参考文档和脚本都放在项目内，Agent 不需要依赖额外的 Skill 目录。
 
-主同步入口：
+## 功能框架
+
+```text
+xhs-to-lark-base
+├── SKILL.md                         # Agent 技能入口与行为规范
+├── scripts/
+│   ├── fetch_xhs_note.py             # 抓取并标准化小红书笔记数据
+│   ├── sync_xhs_to_lark_base.py      # 抓取、写入 Base、下载并上传附件
+│   └── xhs_parser.py                 # 小红书链接解析与页面数据提取
+├── references/
+│   ├── xhs-extraction.md             # 支持的链接格式、字段来源、失败处理
+│   ├── base-schema.md                # 飞书 Base 字段结构
+│   └── feishu-workflow.md            # lark-cli 操作流程
+├── assets/
+│   └── default-base.example.json     # 默认 Base 配置模板
+├── agents/
+│   └── openai.yaml                   # Agent 展示信息示例
+├── requirements.txt                  # Python 运行依赖
+└── LICENSE
+```
+
+核心流程：
+
+1. 用户发送包含小红书链接的自然语言请求。
+2. Agent 根据 `SKILL.md` 调用脚本提取链接并抓取笔记信息。
+3. Skill 检查目标飞书 Base 和字段结构。
+4. Skill 写入笔记记录，默认允许重复采集，便于保留多次采集快照。
+5. Skill 尝试下载媒体并上传到附件字段。
+6. Agent 返回 Base 链接、成功数量、失败字段和附件上传结果。
+
+## 安装前准备
+
+安装本 Skill 前，请先安装并配置飞书 CLI：
+
+[https://github.com/larksuite/cli.git](https://github.com/larksuite/cli.git)
+
+安装完成后，确认本地可以运行：
 
 ```bash
-python scripts/sync_xhs_to_lark_base.py --text "http://xhslink.com/o/xxxx"
+lark-cli --help
 ```
 
-这个脚本会一次性完成抓取、标签选项补齐、记录创建、媒体下载和附件上传。默认不查重，因此同一条笔记重复运行会产生多条采集记录。
-
-## 适合谁使用
-
-- 想把小红书笔记批量沉淀到飞书多维表格的用户。
-- 想让 Agent 自动维护 Base 字段和附件上传流程的用户。
-- 正在构建飞书 CLI 工作流、需要一个可复用示例 Skill 的开发者。
-
-这个项目不是独立桌面应用，也不是无 Agent 的一键同步工具。核心入口是 `SKILL.md`，由 Agent 读取后执行。
-
-## Agent 一键安装
-
-把下面这段发给 Agent：
-
-```text
-安装这个技能 https://github.com/chenningling/xhs-to-lark-base.git ，安装后告诉我如何使用技能。
-```
-
-安装完成后，直接把小红书笔记链接发给 Agent 即可：
-
-```text
-这篇笔记帮我采集到飞书 Base：http://xhslink.com/o/xxxx
-```
-
-也可以指定目标 Base：
-
-```text
-把这条小红书链接采集到这个飞书 Base：<Base 链接>
-小红书链接：<小红书链接>
-```
-
-指定已有 Base 时，本 Skill 不会清空表格、删除已有记录，也不会默认覆盖已有字段。当前主同步脚本会先检查目标表是否已经具备采集所需字段：如果字段缺失或关键字段类型不符合要求，会停止并返回错误，要求先补齐字段或换用新的采集表；只有 `标签` 字段已是多选字段时，脚本会为本次采集到的新标签补充选项，并去除重复选项。
-
-## 前置依赖
-
-### 1. 安装飞书 CLI
-
-`lark-cli` 是本 Skill 操作飞书 Base 的必要依赖。安装方式以官方项目为准：
-
-```bash
-npm install -g @larksuite/cli
-lark-cli --version
-```
-
-官方项目：[https://github.com/larksuite/cli](https://github.com/larksuite/cli)
-
-首次使用需要初始化配置和登录授权：
+如果还没有初始化飞书 CLI，可以按需执行：
 
 ```bash
 lark-cli config init --new
-lark-cli auth login
+lark-cli auth login --scope "base:app:write"
 ```
 
-如果写入 Base 时提示缺少 scope，按 `lark-cli` 的报错补充授权，不要臆造权限名。
+实际 scope 以 `lark-cli` 报错提示和飞书开放平台权限要求为准。
 
-### 2. 安装 Python 依赖
+## 安装方式
 
-本 Skill 使用 Python 脚本解析小红书链接和页面数据：
+### 方式一：让 Agent 自主安装
+
+如果你的 Agent 支持从 GitHub 安装 Skill，可以直接打开本项目并发送类似下面的一句话：
+
+```text
+请先确认本机已安装 lark-cli，然后从 https://github.com/chenningling/xhs-to-lark-base.git 安装 xhs-to-lark-base 这个技能到你的技能目录中，并读取 SKILL.md 完成配置。
+```
+
+安装完成后，可以继续对 Agent 说：
+
+```text
+把这条小红书链接采集到飞书多维表格：https://www.xiaohongshu.com/explore/xxxx
+```
+
+### 方式二：手动 clone 到 Agent 技能目录
+
+先克隆仓库：
+
+```bash
+git clone https://github.com/chenningling/xhs-to-lark-base.git
+```
+
+然后把整个 `xhs-to-lark-base` 目录放到你的 Agent 指定技能安装目录中。不同 Agent 的目录约定可能不同，请以对应 Agent 文档为准。常见形式如下：
+
+```text
+~/.codex/skills/xhs-to-lark-base
+~/.agents/skills/xhs-to-lark-base
+<your-agent-home>/skills/xhs-to-lark-base
+```
+
+放置完成后，让 Agent 重新加载技能，或重启 Agent 会话。
+
+## Python 依赖
+
+进入项目目录后安装脚本依赖：
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-默认不需要创建虚拟环境；只要当前 `python` 能导入 `httpx` 和 `PyYAML` 即可。若系统限制直接安装依赖，或用户明确希望隔离依赖，再按自己的环境使用虚拟环境、pipx、conda 等方案。
+当前依赖包括：
 
-推荐 Python 3.12+；如果系统里 `python` 指向 Python 2，请改用对应的 Python 3 命令。
+- `httpx`：请求小红书页面和媒体资源
+- `PyYAML`：读取 Agent 展示配置
 
-## 目录结构
+## 配置默认飞书 Base
+
+如果你希望 Skill 每次都写入同一个 Base，可以复制配置模板：
+
+```bash
+cp assets/default-base.example.json assets/default-base.json
+```
+
+然后填入真实配置：
+
+```json
+{
+  "base_url": "https://your-domain.feishu.cn/base/xxx",
+  "base_token": "app_xxx",
+  "table_id": "tbl_xxx",
+  "table_name": "小红书笔记采集",
+  "updated_at": "2026-04-29 12:00:00"
+}
+```
+
+如果没有默认 Base，Agent 也可以根据 `SKILL.md` 中的规则创建一个名为 `小红书笔记采集` 的新 Base，并保存为后续默认配置。
+
+## 使用示例
+
+让 Agent 采集一条链接：
 
 ```text
-xhs-to-lark-base/
-├── SKILL.md                         # Agent 执行入口
-├── requirements.txt                 # Python 抓取依赖
-├── assets/default-base.example.json  # 默认 Base 配置模板
-├── scripts/sync_xhs_to_lark_base.py  # 主同步入口
-├── scripts/fetch_xhs_note.py         # 从文本提取并抓取小红书笔记
-├── scripts/xhs_parser.py             # 短链展开、页面解析、字段标准化
-└── references/
-    ├── xhs-extraction.md             # 小红书抓取规则
-    ├── base-schema.md                # 飞书 Base 字段结构
-    └── feishu-workflow.md            # lark-cli 写入流程
+请把这个小红书链接采集到飞书 Base：https://www.xiaohongshu.com/explore/xxxx
 ```
 
-Agent 的主入口是 `SKILL.md`。`references/` 只在执行到对应步骤时读取，用来避免把过多细节塞进主说明。
-
-## 验证安装
-
-只验证链接提取：
-
-```bash
-python scripts/fetch_xhs_note.py --extract-only --text "http://xhslink.com/o/xxxx"
-```
-
-验证真实抓取：
-
-```bash
-python scripts/fetch_xhs_note.py --text "http://xhslink.com/o/xxxx"
-```
-
-如果返回中包含 `note_id`、`title`、`author_name`、`image_urls` 或 `video_urls`，说明小红书解析链路可用。
-
-验证完整同步：
-
-```bash
-python scripts/sync_xhs_to_lark_base.py --text "http://xhslink.com/o/xxxx"
-```
-
-飞书写入不建议手动拼复杂命令。优先让 Agent 调用 `scripts/sync_xhs_to_lark_base.py`，或按 `SKILL.md` 和 `references/feishu-workflow.md` 处理 Base 创建、字段检查、记录写入和附件上传。
-
-## 默认 Base
-
-默认 Base 配置保存在本地私有文件：
+一次采集多条链接：
 
 ```text
-assets/default-base.json
+请归档这些小红书笔记：
+https://www.xiaohongshu.com/explore/xxxx
+https://xhslink.com/xxxx
 ```
 
-仓库只提交模板文件：
-
-```text
-assets/default-base.example.json
-```
-
-首次配置时，Agent 可以复制模板生成本地配置，或在创建/指定 Base 后写入真实配置。`assets/default-base.json` 已加入 `.gitignore`，不要把真实的 Base 链接、`base_token`、`table_id` 提交到仓库。
-
-Agent 选择目标 Base 的优先级：
-
-1. 用户消息中明确给出的 Base 链接。
-2. `assets/default-base.json` 中保存的默认 Base。
-3. 自动创建一个新的 `小红书笔记采集` Base，并写回默认配置。
-
-如果用户明确给出新的 Base 链接，Agent 可以把它视为替换默认 Base 的请求。指定的 Base 如果已有其他内容，不会被清空或覆盖；字段不符合时应先提示用户确认是补齐字段、换用新表，还是提供空 Base。真实默认配置只应保存在本机的 `assets/default-base.json` 中。
-
-## Agent 执行要点
-
-- 先读 `SKILL.md`，再按需读取 `references/xhs-extraction.md`、`references/base-schema.md`、`references/feishu-workflow.md`。
-- 使用 `scripts/fetch_xhs_note.py` 获取标准化 JSON，不要伪造抓取失败的字段。
-- 写入前确认 `lark-cli` 可用、已授权、当前身份对目标 Base 有编辑权限。
-- 附件字段只能上传本地文件，不能直接写远程图片或视频 URL。
-- 附件上传时 `--file` 必须使用媒体目录中的相对路径，例如 `./image.jpg`。
-- 如果附件上传失败，保留远程链接并汇报失败原因。
-- 除非用户明确要求，不要删除或覆盖用户已有字段和视图调整。
-
-## 常见问题
-
-### 找不到 `lark-cli`
-
-先安装飞书 CLI：
+仅调试抓取结果：
 
 ```bash
-npm install -g @larksuite/cli
+python scripts/fetch_xhs_note.py --text "https://www.xiaohongshu.com/explore/xxxx"
 ```
 
-如果安装后仍不可用，检查 npm 全局 bin 目录是否在 `PATH` 中。
-
-### 飞书写入失败
-
-优先检查：
-
-- `lark-cli --version` 是否可用。
-- `lark-cli config init --new` 是否完成。
-- `lark-cli auth login` 是否完成。
-- 当前登录身份是否能编辑目标 Base。
-- 是否缺少 `lark-cli` 报错中提示的 scope。
-
-### Python 依赖未安装
-
-运行抓取脚本时如果提示缺少依赖：
+直接运行同步脚本：
 
 ```bash
-python -m pip install -r requirements.txt
+python scripts/sync_xhs_to_lark_base.py --text "https://www.xiaohongshu.com/explore/xxxx"
 ```
 
-如果当前 Python 环境不允许安装依赖，再改用虚拟环境、pipx、conda 等隔离方案。
+## Base 字段
 
-### 小红书短链能识别但抓取失败
+默认采集表名为 `小红书笔记采集`，主要字段包括：
 
-可能原因：
+- `标题`
+- `内容类型`
+- `作者`
+- `正文`
+- `标签`
+- `发布日期`
+- `点赞`
+- `收藏`
+- `评论`
+- `内容链接`
+- `作者主页链接`
+- `图片链接`
+- `图片附件`
+- `视频链接`
+- `视频附件`
+- `采集时间`
 
-- 笔记不是公开可访问。
-- 当前网络环境无法访问小红书页面或媒体资源。
-- 小红书页面结构变化，需要维护 `scripts/xhs_parser.py`。
-- 无 cookie 模式被限制，公开笔记通常可抓，但不保证全部可访问。
+完整字段类型和修复规则见 [`references/base-schema.md`](references/base-schema.md)。
 
-### 附件上传失败
+## 注意事项
 
-优先检查：
+- 请在安装 Skill 前先安装并配置 `lark-cli`，否则 Agent 无法创建 Base、写入记录或上传附件。
+- 默认不使用小红书 cookie，因此公开笔记通常可抓取，但不保证所有笔记都能访问。
+- 远程媒体 URL 会写入链接字段；附件上传需要先下载到本地文件，上传失败时元数据仍会优先保留。
+- 默认允许重复采集同一条笔记，每次执行会创建新记录。
+- 不要把包含真实 token 的 `assets/default-base.json` 提交到公开仓库。
 
-- 媒体是否已下载成本地文件。
-- 目标字段是否是 `attachment` 类型。
-- 上传命令是否在媒体文件所在目录执行，并使用 `./filename` 形式的相对路径。
-- 大视频上传可能耗时较久。
+## 开源许可
 
-## 当前限制
-
-- 无 cookie 模式不保证能抓取所有笔记。
-- 小红书页面结构变化时，解析器需要维护。
-- 主同步脚本会在补标签选项时去重；如果已有记录依赖重复选项，建议先备份 Base 再批量整理。
-- `lark-cli` 的具体 scope 可能随版本变化，以实际报错和官方 CLI 文档为准。
+本项目使用仓库内 [`LICENSE`](LICENSE) 文件声明的许可证。
