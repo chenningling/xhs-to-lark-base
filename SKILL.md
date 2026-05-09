@@ -14,20 +14,24 @@ description: 将 Xiaohongshu（小红书 / RedNote）笔记链接采集到飞书
 1. 先阅读 [`references/xhs-extraction.md`](references/xhs-extraction.md)，了解支持的链接类型、字段标准化方式和媒体处理限制。
 2. 再阅读 [`references/base-schema.md`](references/base-schema.md)，确认所需的 Base 表结构和默认字段顺序。
 3. 任何 `lark-cli` 写操作前，都先阅读 [`references/feishu-workflow.md`](references/feishu-workflow.md)。
-4. 优先使用 [`scripts/sync_xhs_to_lark_base.py`](scripts/sync_xhs_to_lark_base.py) 完成抓取、写入、媒体下载和附件上传；仅在排障时单独使用 [`scripts/fetch_xhs_note.py`](scripts/fetch_xhs_note.py) 查看标准化后的笔记 JSON。
-5. 按以下顺序确定目标 Base：
+4. 运行任何同步脚本前，必须先执行“环境检查”，确认本机已安装并配置 `lark-cli`。
+5. 优先使用 [`scripts/sync_xhs_to_lark_base.py`](scripts/sync_xhs_to_lark_base.py) 完成抓取、写入、媒体下载和附件上传；仅在排障时单独使用 [`scripts/fetch_xhs_note.py`](scripts/fetch_xhs_note.py) 查看标准化后的笔记 JSON。
+6. 按以下顺序确定目标 Base：
    - 当前用户消息中显式提供的 Base 链接
    - 保存于本地私有文件 `assets/default-base.json` 的默认配置
    - 如果前两者都没有，则新建一个 Base
-6. 写入记录前先校验或修复 Base 的字段结构。
-7. 在同一次 Skill 执行中，自动完成“下载媒体 -> 创建记录 -> 上传附件”。
-8. 最终返回 Base 链接，并按字段给出简明的成功/失败摘要。
+7. 写入记录前先校验或修复 Base 的字段结构。
+8. 在同一次 Skill 执行中，自动完成“下载媒体 -> 创建记录 -> 上传附件”。
+9. 最终返回 Base 链接，并按字段给出简明的成功/失败摘要。
 
 ## 必要行为
 
 - 接受混合文本输入，并从中提取小红书链接。
 - 支持 `xhslink.com` 短链和常规 `xiaohongshu.com` 笔记链接。
 - 默认在不提供 cookie 的情况下工作。
+- 调用 `scripts/sync_xhs_to_lark_base.py` 或任何 `lark-cli base` 命令前，必须先确认 `lark-cli` 已安装、可执行，并已完成必要的飞书认证。
+- 如果缺少 `lark-cli`，不要继续执行同步脚本；停止并提醒用户先安装飞书 CLI：`https://github.com/larksuite/cli.git`。
+- 如果 `lark-cli` 已安装但未初始化或未授权，暂停写操作，并提示用户执行 `lark-cli config init --new` 或 `lark-cli auth login --scope "base:app:write"`。
 - 即使无法上传媒体附件，也优先完成元数据采集。
 - 如果用户提供新的 Base 链接，将其视为“替换默认目标 Base”的明确请求。
 - 如果指定 Base 里已有其他内容，不要清空表格、删除记录、覆盖已有字段或重排用户视图。
@@ -42,7 +46,43 @@ description: 将 Xiaohongshu（小红书 / RedNote）笔记链接采集到飞书
 
 ## 工作流
 
-### 1. 提取并抓取小红书数据
+### 1. 环境检查
+
+在运行主同步脚本或任何飞书写操作前，先检查本机是否具备飞书 CLI 环境。
+
+先确认命令存在：
+
+```bash
+command -v lark-cli
+```
+
+如果没有输出，或命令返回失败，立即停止当前同步流程，并告诉用户：
+
+- 需要先安装飞书 CLI
+- 安装地址：`https://github.com/larksuite/cli.git`
+- 安装完成后重新运行本 Skill
+
+如果 `lark-cli` 存在，再确认它能正常响应：
+
+```bash
+lark-cli --help
+```
+
+如果提示尚未初始化，要求用户先执行：
+
+```bash
+lark-cli config init --new
+```
+
+如果后续 Base 操作提示未登录、无用户身份或 scope 不足，要求用户按实际报错补充授权。最小常见授权命令为：
+
+```bash
+lark-cli auth login --scope "base:app:write"
+```
+
+不要在 `lark-cli` 缺失、未初始化或未授权时继续运行 `scripts/sync_xhs_to_lark_base.py`，因为脚本会在写入 Base、检查字段或上传附件时直接调用 `lark-cli`。
+
+### 2. 提取并抓取小红书数据
 
 优先运行主同步脚本：
 
@@ -76,7 +116,7 @@ python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 
 如果脚本缺少本技能的 Python 依赖，默认提示用户在当前 Python 环境中执行 `python -m pip install -r requirements.txt`。不要默认创建虚拟环境；只有当前环境不允许安装依赖，或用户明确希望隔离依赖时，才建议使用虚拟环境、pipx、conda 等方案。不要虚构任何笔记数据。
 
-### 2. 确定目标 Base
+### 3. 确定目标 Base
 
 使用以下优先级：
 
@@ -93,7 +133,7 @@ python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 - 创建 [`references/base-schema.md`](references/base-schema.md) 中列出的字段
 - 将得到的 Base URL、token 和 table ID 保存到本地私有文件 `assets/default-base.json`
 
-### 3. 校验或修复 Base 结构
+### 4. 校验或修复 Base 结构
 
 写入记录前：
 
@@ -119,7 +159,7 @@ python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 - `图片链接`：使用普通 `text`，因为可能一次写入多条 URL
 - 已上传媒体：使用 `attachment`
 
-### 4. 写入 Base 记录
+### 5. 写入 Base 记录
 
 每条小红书笔记写入一条记录。使用标准化后的 JSON，并按 [`references/base-schema.md`](references/base-schema.md) 中定义的字段映射进行写入。
 
@@ -153,7 +193,7 @@ python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 - 每次采集同一条笔记都创建一条新记录，便于保留多次采集快照。
 - 只有用户明确要求“更新已有记录”或“去重采集”时，才额外按 `笔记ID` 或 `内容链接` 查找并更新。
 
-### 5. 上传媒体附件
+### 6. 上传媒体附件
 
 只有拿到本地文件时，附件上传才可行。Base 的附件字段不能直接写入小红书远程 URL；附件上传必须使用本地文件。
 
@@ -173,7 +213,7 @@ python ./scripts/fetch_xhs_note.py --text "<用户消息>"
 
 除非上传命令确实成功，否则不要声称附件上传成功。
 
-### 6. 返回结构化结果
+### 7. 返回结构化结果
 
 每次执行结束时都要返回：
 
